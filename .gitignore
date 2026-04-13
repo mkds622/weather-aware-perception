@@ -1,0 +1,99 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# =========================
+# Virtual Environments
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Build / Compiled
+# =========================
+*.so
+*.o
+*.a
+*.out
+*.ptx
+*.cubin
+
+build/
+dist/
+*.egg-info/
+
+# CUDA / Torch extensions
+**/build/
+**/lib/
+**/tmp/
+
+# =========================
+# Logs / Outputs
+# =========================
+*.log
+logs/
+outputs/
+runs/
+
+# =========================
+# Datasets / Generated Data
+# =========================
+data/
+raw/
+converted/
+datasets/
+
+# CARLA sensor outputs
+*.bin
+*.npy
+*.png
+*.jpg
+*.jpeg
+*.json
+frames.json
+
+# =========================
+# Checkpoints / Models
+# =========================
+*.pth
+*.ckpt
+*.pt
+checkpoints/
+models/
+
+# =========================
+# Config overrides (optional)
+# =========================
+*.local.json
+*.override.yaml
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+*Zone.Identifier
+
+# =========================
+# Temporary files
+# =========================
+*.swp
+*.tmp
+*.bak
+
+# =========================
+# Misc
+# =========================
+*.zip
+*.tar
+*.tar.gz

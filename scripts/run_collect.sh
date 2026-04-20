@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-source ~/projects/RAWAP_carla_l4dr/.venv/bin/activate
-cd ~/projects/RAWAP_carla_l4dr/carla_l4dr
+source <local_path_to_src>/.venv/bin/activate
+cd <local_path_to_src>/weather-aware-perception
 python scripts/collect_two_cars.py

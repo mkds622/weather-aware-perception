@@ -1,11 +1,12 @@
 {
-  "host": "<Your_IP>", 
+  "host": "<Your_IP>",
   "port": 2000,
   "town": "Town03",
   "fixed_delta_seconds": 0.1,
   "num_frames": 150,
-  "weather": "clear",
-  "output_root": "<local_path_to_src>/weather_aware_perception/raw/scenario_001",
+  "weather": {},
+  "base_output": "<local_path_to_src>/weather-aware-perception/raw",
+  "output_root": "<local_path_to_src>/weather-aware-perception/raw/weather_dataset_extensive_2/run_074",
   "vehicle_1_spawn_index": 0,
   "vehicle_2_spawn_index": 10,
   "lidar": {

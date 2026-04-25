@@ -14,6 +14,70 @@ import numpy as np
 import carla
 import configs
 
+def transform_to_matrix(transform):
+    loc = transform.location
+    rot = transform.rotation
+
+    pitch = np.deg2rad(rot.pitch)
+    yaw   = np.deg2rad(rot.yaw)
+    roll  = np.deg2rad(rot.roll)
+
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    Ry = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    Rz = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    R = Rz @ Ry @ Rx
+
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = [loc.x, loc.y, loc.z]
+
+    return T
+
+
+def build_camera_calib(sensor):
+    attrs = sensor.attributes
+
+    width = int(attrs.get("image_size_x"))
+    height = int(attrs.get("image_size_y"))
+    fov = float(attrs.get("fov"))
+
+    f = width / (2 * np.tan(np.deg2rad(fov / 2)))
+
+    K = [
+        [f, 0, width / 2],
+        [0, f, height / 2],
+        [0, 0, 1]
+    ]
+
+    return {
+        "width": width,
+        "height": height,
+        "fov": fov,
+        "K": K,
+        "T_world_sensor": transform_to_matrix(sensor.get_transform()).tolist()
+    }
+
+
+def build_sensor_calib(sensor):
+    return {
+        "T_world_sensor": transform_to_matrix(sensor.get_transform()).tolist()
+    }
+
 def ensure_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
@@ -22,6 +86,41 @@ def save_json(path: Path, payload: dict):
     with open(path, "w") as f:
         json.dump(payload, f, indent=2)
 
+def lidar_to_ply(measurement, out_path: Path):
+    pts = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
+    xyz = pts[:, :3]
+
+    with open(out_path, "w") as f:
+        f.write("ply\nformat ascii 1.0\n")
+        f.write(f"element vertex {len(xyz)}\n")
+        f.write("property float x\nproperty float y\nproperty float z\n")
+        f.write("end_header\n")
+        for x, y, z in xyz:
+            f.write(f"{x} {y} {z}\n")
+
+def radar_to_ply(measurement, out_path):
+    raw = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
+
+    # [velocity, azimuth, altitude, depth]
+    v = raw[:, 0]
+    az = raw[:, 1]
+    alt = raw[:, 2]
+    d = raw[:, 3]
+
+    # convert to XYZ
+    x = d * np.cos(alt) * np.cos(az)
+    y = d * np.cos(alt) * np.sin(az)
+    z = d * np.sin(alt)
+
+    pts = np.stack([x, y, z], axis=1)
+
+    with open(out_path, "w") as f:
+        f.write("ply\nformat ascii 1.0\n")
+        f.write(f"element vertex {len(pts)}\n")
+        f.write("property float x\nproperty float y\nproperty float z\n")
+        f.write("end_header\n")
+        for px, py, pz in pts:
+            f.write(f"{px} {py} {pz}\n")
 
 def lidar_to_bin(measurement: carla.LidarMeasurement, out_path: Path):
     arr = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
@@ -118,13 +217,14 @@ def make_sensor_dirs(root: Path, ego_name: str):
         ensure_dir(root / ego_name / sub)
 
 
-def write_calib(root: Path, ego_name: str, sensor_name: str, sensor_actor: carla.Actor):
+def write_calib(root: Path, ego_name: str, sensor_name: str, sensor_actor: carla.Actor, extraData: dict = None):
     save_json(
         root / ego_name / "calib" / f"{sensor_name}.json",
         {
             "sensor_name": sensor_name,
             "type_id": sensor_actor.type_id,
-            "transform": transform_to_dict(sensor_actor.get_transform()),
+            # "transform": transform_to_dict(sensor_actor.get_transform()),
+            **(extraData if extraData is not None else {})
         },
     )
 
@@ -240,14 +340,20 @@ def main():
     make_sensor_dirs(out_root, "ego_1")
     make_sensor_dirs(out_root, "ego_2")
 
-    write_calib(out_root, "ego_1", "lidar_top", lidar1)
-    write_calib(out_root, "ego_1", "radar_front", radar1f)
-    write_calib(out_root, "ego_1", "radar_back", radar1b)
-    write_calib(out_root, "ego_1", "camera_front", cam1)
-    write_calib(out_root, "ego_2", "lidar_top", lidar2)
-    write_calib(out_root, "ego_2", "radar_front", radar2f)
-    write_calib(out_root, "ego_2", "radar_back", radar2b)
-    write_calib(out_root, "ego_2", "camera_front", cam2)
+    ensure_dir(out_root / "previews" / "ego_1" / "lidar")
+    ensure_dir(out_root / "previews" / "ego_1" / "radar")
+
+    ensure_dir(out_root / "previews" / "ego_2" / "lidar")
+    ensure_dir(out_root / "previews" / "ego_2" / "radar")
+
+    write_calib(out_root, "ego_1", "lidar_top", lidar1, extraData=build_sensor_calib(lidar1))
+    write_calib(out_root, "ego_1", "radar_front", radar1f, extraData=build_sensor_calib(radar1f))
+    write_calib(out_root, "ego_1", "radar_back", radar1b, extraData=build_sensor_calib(radar1b))
+    write_calib(out_root, "ego_1", "camera_front", cam1, extraData=build_camera_calib(cam1))
+    write_calib(out_root, "ego_2", "lidar_top", lidar2, extraData=build_sensor_calib(lidar2))
+    write_calib(out_root, "ego_2", "radar_front", radar2f, extraData=build_sensor_calib(radar2f))
+    write_calib(out_root, "ego_2", "radar_back", radar2b, extraData=build_sensor_calib(radar2b))
+    write_calib(out_root, "ego_2", "camera_front", cam2, extraData=build_camera_calib(cam2))
 
     q_lidar1, q_r1f, q_r1b = queue.Queue(), queue.Queue(), queue.Queue()
     q_lidar2, q_r2f, q_r2b = queue.Queue(), queue.Queue(), queue.Queue()
@@ -300,13 +406,28 @@ def main():
             m_c1.save_to_disk(str(out_root / "ego_1" / "camera_front" / f"{fid}.png"))
             m_c2.save_to_disk(str(out_root / "ego_2" / "camera_front" / f"{fid}.png"))
 
+            lidar_to_ply(m_l1, out_root / "previews" / "ego_1" / "lidar" / f"{fid}.ply")
+            lidar_to_ply(m_l2, out_root / "previews" / "ego_2" / "lidar" / f"{fid}.ply")
+
+            radar_to_ply(m_r1f, out_root / "previews" / "ego_1" / "radar" / f"front_{fid}.ply")
+            radar_to_ply(m_r1b, out_root / "previews" / "ego_1" / "radar" / f"back_{fid}.ply")
+
+            radar_to_ply(m_r2f, out_root / "previews" / "ego_2" / "radar" / f"front_{fid}.ply")
+            radar_to_ply(m_r2b, out_root / "previews" / "ego_2" / "radar" / f"back_{fid}.ply")
+
             save_json(
                 out_root / "ego_1" / "pose" / f"{fid}.json",
-                transform_to_dict(ego1.get_transform()),
+                {
+                    # "transform": transform_to_dict(ego1.get_transform()),
+                    "T_world_ego": transform_to_matrix(ego1.get_transform()).tolist()
+                },
             )
             save_json(
                 out_root / "ego_2" / "pose" / f"{fid}.json",
-                transform_to_dict(ego2.get_transform()),
+                {
+                    # "transform": transform_to_dict(ego2.get_transform()),
+                    "T_world_ego": transform_to_matrix(ego2.get_transform()).tolist()
+                },
             )
 
             nearby_actors = world.get_actors().filter("vehicle.*")
@@ -324,9 +445,30 @@ def main():
                 "sun_azimuth_angle": weather.sun_azimuth_angle,
                 "sun_altitude_angle": weather.sun_altitude_angle,
             }
+
+            ego1_pose = transform_to_matrix(ego1.get_transform())
+            ego2_pose = transform_to_matrix(ego2.get_transform())
+
             save_json(
                 out_root / "labels" / f"{fid}.json",
-                {"frame": frame_id, "vehicles": labels, "weather": weather_dict},
+                {
+                    "frame": frame_id,
+                    "timestamp": world.get_snapshot().timestamp.elapsed_seconds,
+
+                    # global ground truth
+                    "weather": weather_dict,
+                    "vehicles": labels,
+
+                    # ego-specific poses (CRITICAL)
+                    "ego": {
+                        "ego_1": {
+                            "T_world_ego": ego1_pose.tolist()
+                        },
+                        "ego_2": {
+                            "T_world_ego": ego2_pose.tolist()
+                        }
+                    }
+                },
             )
 
             frame_index_records.append(

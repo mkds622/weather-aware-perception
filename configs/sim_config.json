@@ -6,7 +6,7 @@
   "num_frames": 150,
   "weather": {},
   "base_output": "<local_path_to_src>/weather-aware-perception/raw",
-  "output_root": "<local_path_to_src>/weather-aware-perception/raw/weather_dataset_extensive_2/run_074",
+  "output_root": "<local_path_to_src>/weather-aware-perception/raw/weather_dataset_fixed/run_005",
   "vehicle_1_spawn_index": 0,
   "vehicle_2_spawn_index": 10,
   "lidar": {
@@ -20,10 +20,10 @@
     "noise_stddev": 0.0
   },
   "radar": {
-    "horizontal_fov": 30.0,
-    "vertical_fov": 10.0,
+    "horizontal_fov": 60.0,
+    "vertical_fov": 30.0,
     "range": 100.0,
-    "points_per_second": 1500,
+    "points_per_second": 9000,
     "sensor_tick": 0.0
   }
 }

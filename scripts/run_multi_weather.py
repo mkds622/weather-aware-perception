@@ -14,9 +14,9 @@ import configs
 from samplers import random_sampler, lhs_sampler
 
 CONFIG_PATH = f"{configs.project_config['project_root']}/configs/sim_config.json"
-BASE_OUTPUT = "weather_dataset_lhs"
+BASE_OUTPUT = "weather_dataset"
 
-USE_LHS = True
+USE_LHS = False
 
 def update_config(weather_params, run_id):
     with open(CONFIG_PATH, "r") as f:

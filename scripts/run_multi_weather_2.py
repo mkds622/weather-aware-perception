@@ -14,7 +14,7 @@ import configs
 from samplers import random_sampler, lhs_sampler
 
 CONFIG_PATH = f"{configs.project_config['project_root']}/configs/sim_config.json"
-BASE_OUTPUT = "weather_dataset_fusion_extended_2"
+BASE_OUTPUT = "weather_dataset_extended_2"
 
 USE_LHS = False
 
@@ -32,7 +32,7 @@ def update_config(weather_params, run_id, regime, spawn_index):
         json.dump(cfg, f, indent=2)
 
 def run_collection():
-    subprocess.run(["bash", f"{configs.project_config['project_root']}/scripts/run_collect.sh"], check=True)
+    subprocess.run(["bash", f"{configs.project_config['project_root']}/scripts/run_collect_2.sh"], check=True)
 
 def main():
     regimes = ["clear", "fog", "rain" ] 

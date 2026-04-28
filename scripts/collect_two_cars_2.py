@@ -86,18 +86,6 @@ def save_json(path: Path, payload: dict):
     with open(path, "w") as f:
         json.dump(payload, f, indent=2)
 
-def lidar_to_ply(measurement, out_path: Path):
-    pts = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
-    xyz = pts[:, :3]
-
-    with open(out_path, "w") as f:
-        f.write("ply\nformat ascii 1.0\n")
-        f.write(f"element vertex {len(xyz)}\n")
-        f.write("property float x\nproperty float y\nproperty float z\n")
-        f.write("end_header\n")
-        for x, y, z in xyz:
-            f.write(f"{x} {y} {z}\n")
-
 def radar_to_ply(measurement, out_path):
     raw = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
 
@@ -121,10 +109,6 @@ def radar_to_ply(measurement, out_path):
         f.write("end_header\n")
         for px, py, pz in pts:
             f.write(f"{px} {py} {pz}\n")
-
-def lidar_to_bin(measurement: carla.LidarMeasurement, out_path: Path):
-    arr = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4)
-    arr.tofile(str(out_path))
 
 
 def radar_to_npy(measurement: carla.RadarMeasurement, out_path: Path):
@@ -181,19 +165,6 @@ def get_weather(cfg_weather):
     return carla.WeatherParameters.ClearNoon
 
 
-def build_lidar_bp(bp_lib, cfg):
-    bp = bp_lib.find("sensor.lidar.ray_cast")
-    bp.set_attribute("channels", str(cfg["channels"]))
-    bp.set_attribute("range", str(cfg["range"]))
-    bp.set_attribute("points_per_second", str(cfg["points_per_second"]))
-    bp.set_attribute("rotation_frequency", str(cfg["rotation_frequency"]))
-    bp.set_attribute("upper_fov", str(cfg["upper_fov"]))
-    bp.set_attribute("lower_fov", str(cfg["lower_fov"]))
-    bp.set_attribute("sensor_tick", str(cfg["sensor_tick"]))
-    bp.set_attribute("noise_stddev", str(cfg["noise_stddev"]))
-    return bp
-
-
 def build_radar_bp(bp_lib, cfg):
     bp = bp_lib.find("sensor.other.radar")
     bp.set_attribute("horizontal_fov", str(cfg["horizontal_fov"]))
@@ -206,7 +177,6 @@ def build_radar_bp(bp_lib, cfg):
 
 def make_sensor_dirs(root: Path, ego_name: str):
     for sub in [
-        "lidar",
         "radar_front",
         "radar_back",
         "pose",
@@ -272,11 +242,8 @@ def main():
 
     ego.set_autopilot(True)
 
-    lidar_bp = build_lidar_bp(bp_lib, cfg["lidar"])
     radar_bp = build_radar_bp(bp_lib, cfg["radar"])
     camera_bp = build_camera_bp(bp_lib)
-
-    lidar_tf = carla.Transform(carla.Location(x=0.0, y=0.0, z=2.2))
 
     radar_transform_fl = carla.Transform(
         carla.Location(x=1.5, y=-0.8, z=1.0),
@@ -303,10 +270,6 @@ def main():
         carla.Rotation(pitch=0.0, yaw=0.0, roll=0.0),
     )
 
-    lidar = world.spawn_actor(
-        lidar_bp, lidar_tf, attach_to=ego, attachment_type=carla.AttachmentType.Rigid
-    )
-
     radar1fl = world.spawn_actor(radar_bp, radar_transform_fl, attach_to=ego, attachment_type=carla.AttachmentType.Rigid)
 
     radar1fr = world.spawn_actor(radar_bp, radar_transform_fr, attach_to=ego, attachment_type=carla.AttachmentType.Rigid)
@@ -324,19 +287,17 @@ def main():
 
     make_sensor_dirs(out_root, "ego")
 
-    ensure_dir(out_root / "previews" / "ego" / "lidar")
     ensure_dir(out_root / "previews" / "ego" / "radar")
 
-    write_calib(out_root, "ego", "lidar_top", lidar, extraData=build_sensor_calib(lidar))
     write_calib(out_root, "ego", "radar_front_left", radar1fl, extraData=build_sensor_calib(radar1fl))
     write_calib(out_root, "ego", "radar_front_right", radar1fr, extraData=build_sensor_calib(radar1fr))
     write_calib(out_root, "ego", "radar_back_left", radar1bl, extraData=build_sensor_calib(radar1bl))
     write_calib(out_root, "ego", "radar_back_right", radar1br, extraData=build_sensor_calib(radar1br))
     write_calib(out_root, "ego", "camera_front", cam1, extraData=build_camera_calib(cam1))
 
-    q_lidar, q_r1fl, q_r1fr, q_r1bl, q_r1br = queue.Queue(), queue.Queue(), queue.Queue(), queue.Queue(), queue.Queue()
+    q_r1fl, q_r1fr, q_r1bl, q_r1br = queue.Queue(), queue.Queue(), queue.Queue(), queue.Queue()
     q_cam1 = queue.Queue()
-    lidar.listen(q_lidar.put)
+
     radar1fl.listen(q_r1fl.put)
     radar1fr.listen(q_r1fr.put)
     radar1bl.listen(q_r1bl.put)
@@ -345,7 +306,6 @@ def main():
 
     actors_all = [
         ego,
-        lidar,
         radar1fl,
         radar1fr,
         radar1bl,
@@ -365,7 +325,6 @@ def main():
         for _ in range(cfg["num_frames"]):
             frame_id = world.tick()
 
-            m_l = q_lidar.get(timeout=5.0)
             m_r1fl = q_r1fl.get(timeout=5.0)
             m_r1fr = q_r1fr.get(timeout=5.0)
             m_r1bl = q_r1bl.get(timeout=5.0)
@@ -374,14 +333,11 @@ def main():
 
             fid = f"{frame_id:06d}"
 
-            lidar_to_bin(m_l, out_root / "ego" / "lidar" / f"{fid}.bin")
             radar_to_npy(m_r1fl, out_root / "ego" / "radar_front" / f"left_{fid}.npy")
             radar_to_npy(m_r1fr, out_root / "ego" / "radar_front" / f"right_{fid}.npy")
             radar_to_npy(m_r1bl, out_root / "ego" / "radar_back" / f"left_{fid}.npy")
             radar_to_npy(m_r1br, out_root / "ego" / "radar_back" / f"right_{fid}.npy")
             m_c1.save_to_disk(str(out_root / "ego" / "camera_front" / f"{fid}.png"))
-
-            lidar_to_ply(m_l, out_root / "previews" / "ego" / "lidar" / f"{fid}.ply")
 
             radar_to_ply(m_r1fl, out_root / "previews" / "ego" / "radar" / f"front_left_{fid}.ply")
             radar_to_ply(m_r1fr, out_root / "previews" / "ego" / "radar" / f"front_right_{fid}.ply")

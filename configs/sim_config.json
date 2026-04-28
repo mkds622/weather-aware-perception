@@ -4,11 +4,11 @@
   "town": "Town03",
   "fixed_delta_seconds": 0.1,
   "num_frames": 150,
-  "weather": {},
+  "weather": {
+  },
   "base_output": "<local_path_to_src>/weather-aware-perception/raw",
-  "output_root": "<local_path_to_src>/weather-aware-perception/raw/weather_dataset_fixed/run_005",
+  "output_root": "<local_path_to_src>/weather-aware-perception/raw/weather_dataset_fusion_extended_2/run_015/clear",
   "vehicle_1_spawn_index": 0,
-  "vehicle_2_spawn_index": 10,
   "lidar": {
     "channels": 64,
     "range": 100.0,

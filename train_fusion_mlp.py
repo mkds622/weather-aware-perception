@@ -1,3 +1,12 @@
+"""
+Full fusion model: LiDAR + Radar + Camera
+
+- Radar (4 sensors)
+- LiDAR (.bin point cloud features)
+- Camera features
+
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn

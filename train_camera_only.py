@@ -1,3 +1,12 @@
+"""
+Camera-only weather classification using CARLA data.
+
+- Input: camera_front/*.png
+- Features: grayscale statistics, contrast, edge variance
+- Output: 3-class weather classification (clear, rain, fog)
+
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn

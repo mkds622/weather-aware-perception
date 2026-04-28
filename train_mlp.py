@@ -1,3 +1,12 @@
+"""
+Fusion model: Camera + Radar (CARLA)
+
+- Combines camera and radar features
+- Demonstrates dominance of camera features
+
+"""
+
+
 from math import perm
 import os
 import numpy as np

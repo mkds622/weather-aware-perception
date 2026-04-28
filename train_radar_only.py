@@ -1,3 +1,12 @@
+"""
+Radar-only weather classification using CARLA radar data.
+
+- Input: radar_front/back *.npy
+- Features: depth distribution, angular histogram, density metrics
+- Output: 3-class classification
+
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn

@@ -1,3 +1,12 @@
+"""
+Radar-only weather classification using RADIATE dataset.
+
+- Input: Navtech radar polar images
+- Features: intensity, distribution, spatial bins
+- Output: 3-class classification
+
+"""
+
 import cv2
 import numpy as np
 import torch

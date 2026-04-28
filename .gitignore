@@ -50,7 +50,7 @@ datasets/
 # CARLA sensor outputs
 *.bin
 *.npy
-*.png
+# *.png
 *.jpg
 *.jpeg
 *.json
